@@ -68,7 +68,6 @@ Real pdf_sample_bsdf_op::operator()(const DisneyMetal &bsdf) const {
     if (n_dot_out <= 0 || n_dot_h <= 0) {
         return 0;
     }
-    Spectrum base_color = eval(bsdf.base_color, vertex.uv, vertex.uv_screen_size, texture_pool);
     Real roughness = eval(bsdf.roughness, vertex.uv, vertex.uv_screen_size, texture_pool);
     Real anisotropic = eval(bsdf.anisotropic, vertex.uv, vertex.uv_screen_size, texture_pool);
     // Clamp roughness to avoid numerical issues.
