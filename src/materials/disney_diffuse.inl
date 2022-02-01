@@ -17,16 +17,23 @@ Spectrum eval_op::operator()(const DisneyDiffuse &bsdf) const {
     Vector3 half_vector = normalize(dir_in + dir_out);
 
     // compute base diffuse BRDF
-    auto factor = [&frame](const Real F_90, const Vector3& w) {
-        return 1 + (F_90 - 1) * std::pow(1 - std::fabs(dot(frame.n, w)),  5.0);
+    Real n_dot_h = dot(frame.n, half_vector);
+    Real n_dot_in = dot(frame.n, dir_in);
+    Real n_dot_out = dot(frame.n, dir_out);
+    Real h_dot_in = dot(half_vector, dir_in);
+    Real h_dot_out = dot(half_vector, dir_out);
+
+    // diffuse
+    auto factor = [&frame](const Real F_90, const Real cosine) {
+        return 1 + (F_90 - 1) * std::pow(1 - std::fabs(cosine),  5.0);
     };
-    const Real F_D_90 = 0.5 + 2 * roughness * dot(half_vector, dir_out) * dot(half_vector, dir_out);
-    Spectrum f_base_diffuse = base_color / c_PI * factor(F_D_90, dir_in) * factor(F_D_90, dir_out) * std::fabs(dot(frame.n, dir_out));
+    const Real F_D_90 = 0.5 + 2 * roughness * h_dot_out * h_dot_out;
+    Spectrum f_base_diffuse = base_color / c_PI * factor(F_D_90, n_dot_in) * factor(F_D_90, n_dot_out) * std::fabs(n_dot_out);
 
     const Real F_SS_90 = roughness * dot(half_vector, dir_out) * dot(half_vector, dir_out);
     Spectrum f_subsurface = 1.25 * base_color / c_PI *
-                (factor(F_SS_90, dir_in) * factor(F_SS_90, dir_out) * (1.0 / (std::fabs(dot(frame.n, dir_in)) + std::fabs(dot(frame.n, dir_out))) - 0.5) + 0.5)
-                * std::fabs(dot(frame.n, dir_out));
+                (factor(F_SS_90, n_dot_in) * factor(F_SS_90, n_dot_out) * (1.0 / (std::fabs(n_dot_in) + std::fabs(n_dot_out)) - 0.5) + 0.5)
+                * std::fabs(n_dot_out);
 
     return (1 - subsurface) * f_base_diffuse + subsurface * f_subsurface;
 }
