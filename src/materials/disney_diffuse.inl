@@ -17,10 +17,8 @@ Spectrum eval_op::operator()(const DisneyDiffuse &bsdf) const {
     Vector3 half_vector = normalize(dir_in + dir_out);
 
     // compute base diffuse BRDF
-    Real n_dot_h = dot(frame.n, half_vector);
     Real n_dot_in = dot(frame.n, dir_in);
     Real n_dot_out = dot(frame.n, dir_out);
-    Real h_dot_in = dot(half_vector, dir_in);
     Real h_dot_out = dot(half_vector, dir_out);
 
     // diffuse
