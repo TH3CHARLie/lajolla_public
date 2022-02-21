@@ -42,7 +42,7 @@ Spectrum next_event_estimation(Vector3 p, int current_medium_id, const Scene &sc
         }
 
         if (shadow_medium_id != -1) {
-            Medium meidum = scene.media[shadow_medium_id];
+            const Medium& meidum = scene.media[shadow_medium_id];
             Spectrum sigma_a = get_sigma_a(meidum, make_zero_spectrum());
 	        Spectrum sigma_s = get_sigma_s(meidum, make_zero_spectrum());
             Spectrum sigma_t = (sigma_a + sigma_s);
@@ -109,7 +109,7 @@ Spectrum vol_path_tracing_1(const Scene &scene,
     }
     PathVertex vertex = *vertex_;
 
-    Medium medium = scene.media[vertex.exterior_medium_id];
+    const Medium& medium = scene.media[vertex.exterior_medium_id];
     Real t = distance(ray.org, vertex.position);
     Spectrum sigma_a = get_sigma_a(medium, vertex.position);
     Spectrum transmittance = exp(-sigma_a * t);
@@ -133,7 +133,7 @@ Spectrum vol_path_tracing_2(const Scene &scene,
     RayDifferential ray_diff = RayDifferential{Real(0), Real(0)};
     std::optional<PathVertex> vertex_ = intersect(scene, ray, ray_diff);
     Real u = next_pcg32_real<Real>(rng);
-    Medium medium = scene.media[scene.camera.medium_id];
+    const Medium& medium = scene.media[scene.camera.medium_id];
 	Spectrum sigma_a = get_sigma_a(medium, make_zero_spectrum());
 	Spectrum sigma_s = get_sigma_s(medium, make_zero_spectrum());
 
@@ -220,7 +220,7 @@ Spectrum vol_path_tracing_3(const Scene &scene,
         Spectrum sigma_s = make_zero_spectrum();
         Spectrum sigma_t = make_zero_spectrum();
         if (current_medium_id != -1) {
-            Medium current_medium = scene.media[current_medium_id];
+            const Medium& current_medium = scene.media[current_medium_id];
             sigma_a = get_sigma_a(current_medium, make_zero_spectrum());
 	        sigma_s = get_sigma_s(current_medium, make_zero_spectrum());
             sigma_t = (sigma_a + sigma_s);
@@ -324,7 +324,7 @@ Spectrum vol_path_tracing_4(const Scene &scene,
         Spectrum sigma_s = make_zero_spectrum();
         Spectrum sigma_t = make_zero_spectrum();
         if (current_medium_id != -1) {
-            Medium current_medium = scene.media[current_medium_id];
+            const Medium& current_medium = scene.media[current_medium_id];
             sigma_a = get_sigma_a(current_medium, make_zero_spectrum());
 	        sigma_s = get_sigma_s(current_medium, make_zero_spectrum());
             sigma_t = (sigma_a + sigma_s);
@@ -453,7 +453,7 @@ Spectrum vol_path_tracing_5(const Scene &scene,
         Spectrum sigma_s = make_zero_spectrum();
         Spectrum sigma_t = make_zero_spectrum();
         if (current_medium_id != -1) {
-            Medium current_medium = scene.media[current_medium_id];
+            const Medium& current_medium = scene.media[current_medium_id];
             sigma_a = get_sigma_a(current_medium, make_zero_spectrum());
 	        sigma_s = get_sigma_s(current_medium, make_zero_spectrum());
             sigma_t = (sigma_a + sigma_s);
@@ -471,7 +471,7 @@ Spectrum vol_path_tracing_5(const Scene &scene,
                 ray.org = vertex.position;
             }
             multi_trans_pdf *= trans_pdf;
-        } else if (current_medium_id != -1 && vertex_) {
+        } else if (current_medium_id == -1 && vertex_) {
             ray.org = vertex.position;
         }
         current_path_throughput *= (transmittance / trans_pdf);
@@ -511,7 +511,7 @@ Spectrum vol_path_tracing_5(const Scene &scene,
             std::optional<Vector3> next_dir_ = sample_phase_function(phase_function, -ray.dir, rnd_param);
             // NEE
             PathVertex tmp;
-            Spectrum nee = next_event_estimation(ray.org, current_medium_id, scene, -ray.dir, bounces, rng, tmp, scatter);
+            Spectrum nee = next_event_estimation(ray.org, current_medium_id, scene, -ray.dir, bounces, rng, tmp, true);
             radiance += current_path_throughput * nee * sigma_s;
 
             if (next_dir_) {
@@ -528,7 +528,7 @@ Spectrum vol_path_tracing_5(const Scene &scene,
                 break;
             }
         } else if (!scatter && vertex_) {
-            Spectrum nee = next_event_estimation(ray.org, current_medium_id, scene, -ray.dir, bounces, rng, vertex, scatter);
+            Spectrum nee = next_event_estimation(ray.org, current_medium_id, scene, -ray.dir, bounces, rng, vertex, false);
             radiance += current_path_throughput * nee;
 
 			// bsdf sampling
@@ -556,6 +556,8 @@ Spectrum vol_path_tracing_5(const Scene &scene,
             } else {
                 ray_diff.spread = refract(ray_diff, vertex.mean_curvature, bsdf_sample.eta, bsdf_sample.roughness);
                 eta_scale /= (bsdf_sample.eta * bsdf_sample.eta);
+                // different from path tracing code: we need to update the index if there's a transmission event
+                current_medium_id = update_medium(vertex, ray, current_medium_id);
             }
             ray = Ray{ray.org, dir_bsdf, get_intersection_epsilon(scene), infinity<Real>()};
             Spectrum f = eval(mat, dir_view, dir_bsdf, vertex, scene.texture_pool);
@@ -564,7 +566,7 @@ Spectrum vol_path_tracing_5(const Scene &scene,
 
 			dir_pdf = p2;
 			nee_p_cache = ray.org;
-			multi_trans_pdf = 1;
+			multi_trans_pdf = 1.0f;
         } else {
             break;
         }
