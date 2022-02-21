@@ -562,6 +562,10 @@ Spectrum vol_path_tracing_5(const Scene &scene,
             ray = Ray{ray.org, dir_bsdf, get_intersection_epsilon(scene), infinity<Real>()};
             Spectrum f = eval(mat, dir_view, dir_bsdf, vertex, scene.texture_pool);
 			Real p2 = pdf_sample_bsdf(mat, dir_view, dir_bsdf, vertex, scene.texture_pool);
+            if (p2 <= 0) {
+                // Numerical issue -- we generated some invalid rays.
+                break;
+            }
 			current_path_throughput *= (f / p2);
 
 			dir_pdf = p2;
